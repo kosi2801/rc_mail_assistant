@@ -1,0 +1,34 @@
+I run a Repair Cafe group that runs regular community events where visitors receive support with their broken things from volunteers.
+Many of the visitors get in contact with us via email or a contact form on a webpage, that allows to send us mails without immediately exposing our groups mail address.
+The mail account that receives the contact requests and visit announcements for the events is set up on Gmails and already contains a lot of past communication that includes requests from visitors as well as our responses.
+The mailbox does not only contain mail communication related to the regular events but also communication regarding our group and community in general.
+
+I want to create a web application that connects to the Gmail account, evaluates all incoming and new email activity. Communication that is not from visitors that want (or potentially want) to visit one of our events should be ignored.
+Mail communication from persons that want to visit one of our events should be evaluated and a draft response should be created but not sent. The content of the draft response should be created according to past responses to comparable requests.
+Furthermore the response should respect certain current information, like eg. the date and location of our next event and if there are special additional offerings available at that time (eg. if there is a possibility to repair bikes).
+
+Locating similar past mail communication as well as creating the response draft mails should be done by also utilizing AI LLM technology. Similar mail requests could eg. be located via ChromaDB. Creating the draft response could be done by using inference using the latest correspondence of the identified similar mail threads.
+
+Technically the platform will be running on Docker/Portainer on a Raspberry Pi 5 with 8GB of RAM and running from a SSD that is connected via PCIe.
+Every night at 2am Docker is shut down to create a backup, so long-running processes must be tolerant to interruptions and be able to recover and continue.
+
+The LLM should be accessed by default using Ollama API that runs in a different container on the same server. But it should also be possible to configure the application to use a locally running llama.cpp.
+This will be used to simplify testing and evaluating different models and settings dynamically via Ollama and switching to llama.cpp when a good combination was identified.
+
+For performance and safety reasons synching from and to the mail account should only be done manually. With a "Sync incoming" button all mail communication (up to a configurable point in time in the past) should be synched to a local database (eg. Postgres). The synched data should contain all textual content of a mail, but no attachments or HTML. Only changed data (eg. new received emails or responses to existing mails, also outgoing sent emails) should be synched to local. Also, mail-thread remnants from previous mails (often at the bottom of a mail) in a conversation thread should be removed from indiviidual entries.
+
+It should be possible to review the drafted responses in the web application and also correct them. A "Sync Drafts" button should then sync the draft responses to corresponding mails on Gmail so that they can be sent directly at a later point directly in Gmail.
+
+Maybe the UI makes sense in a multi-column style. Eg the left column lists all whole communication threads. When one is selected, the middle column then shows all incoming mails. When one of those is selected the right column shows either the outgoing mail that was sent for this or the AI drafted response. Conversations/mails where the latest activity was an incoming mail (ie. not yet answered by me) should be visually different (eg with a higher contrast color scheme or a similar styling).
+
+The UI should follow responsive design but not be too fancy or wasteful of screen estate. 
+The whole application should have minimal dependencies.
+The whole application makes probably most sense to be implemented in Python to best utilize database and LLM components and modules.
+Permanent data and config storage should be done using separate Docker volumes.
+Application components should be modularized and exchangeable where it makes sense, eg. connecting to a different mail provider than Gmail, having a different database backend or the llamaa.cpp/Ollama switching.
+The application does not need user management, it is planned to use it in a single-user fashion.
+All configuration options apart from basic UI access (eg. Gmail API access, used LLMs, llama.cpp/Ollama access, current information, ...) should be possible via a separate configuration page.
+All configuration options that deal with connectivity should have a test-possibility to check the connection. In case a connection test fails, the error or possible cause of the issue should be shown.
+
+Implementation is planned to be done using Github CLI (Copilot) and Github Spec Kit. Which model is best suited for this task?
+Prepare drafts for all necessary items in Spec Kit like constitution, project specification, specification clarification, plan creation, plan validation and task breakdown.
