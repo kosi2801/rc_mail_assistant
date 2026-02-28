@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Config — Repair Café Mail Assistant{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2 style="margin-bottom:1rem">Configuration</h2>
+
+  <form hx-post="/config" hx-swap="none" style="display:flex;flex-direction:column;gap:0.75rem">
+
+    <fieldset style="border:1px solid #dee2e6;border-radius:4px;padding:1rem">
+      <legend style="font-weight:600;padding:0 0.25rem">LLM / Ollama</legend>
+      <label>
+        Endpoint
+        <input name="llm_endpoint" type="url" value="{{ config.llm_endpoint or '' }}"
+               placeholder="http://ollama:11434" style="width:100%;margin-top:0.25rem;padding:0.4rem 0.5rem;border:1px solid #ced4da;border-radius:4px" />
+      </label>
+      <label style="margin-top:0.5rem;display:block">
+        Model
+        <input name="llm_model" type="text" value="{{ config.llm_model or '' }}"
+               placeholder="llama3.2" style="width:100%;margin-top:0.25rem;padding:0.4rem 0.5rem;border:1px solid #ced4da;border-radius:4px" />
+      </label>
+      <button type="button"
+              hx-post="/config/test/llm"
+              hx-target="#test-llm-result"
+              hx-swap="innerHTML"
+              style="margin-top:0.75rem;padding:0.35rem 0.75rem;font-size:0.85rem;cursor:pointer">
+        Test LLM connection
+      </button>
+      <div id="test-llm-result" style="margin-top:0.4rem;min-height:1.2rem;font-size:0.875rem"></div>
+    </fieldset>
+
+    <fieldset style="border:1px solid #dee2e6;border-radius:4px;padding:1rem">
+      <legend style="font-weight:600;padding:0 0.25rem">Next Event</legend>
+      <label>
+        Date
+        <input name="event_date" type="date" value="{{ config.event_date or '' }}"
+               style="width:100%;margin-top:0.25rem;padding:0.4rem 0.5rem;border:1px solid #ced4da;border-radius:4px" />
+      </label>
+      <label style="margin-top:0.5rem;display:block">
+        Location
+        <input name="event_location" type="text" value="{{ config.event_location or '' }}"
+               placeholder="Wijkcentrum De Brug, Amsterdam"
+               style="width:100%;margin-top:0.25rem;padding:0.4rem 0.5rem;border:1px solid #ced4da;border-radius:4px" />
+      </label>
+      <label style="margin-top:0.5rem;display:block">
+        Offerings (comma-separated)
+        <input name="event_offerings" type="text" value="{{ config.event_offerings or '' }}"
+               placeholder="electronics,clothing,bikes"
+               style="width:100%;margin-top:0.25rem;padding:0.4rem 0.5rem;border:1px solid #ced4da;border-radius:4px" />
+      </label>
+    </fieldset>
+
+    <fieldset style="border:1px solid #dee2e6;border-radius:4px;padding:1rem">
+      <legend style="font-weight:600;padding:0 0.25rem">Service Connections</legend>
+      <p style="font-size:0.85rem;color:#6c757d;margin-bottom:0.75rem">
+        Gmail credentials are set via <code>.env</code> — not editable here.
+      </p>
+      <button type="button" hx-post="/config/test/db" hx-target="#test-db-result" hx-swap="innerHTML"
+              style="padding:0.35rem 0.75rem;font-size:0.85rem;cursor:pointer">
+        Test DB
+      </button>
+      <div id="test-db-result" style="margin-top:0.4rem;min-height:1.2rem;font-size:0.875rem"></div>
+      <button type="button" hx-post="/config/test/mail" hx-target="#test-mail-result" hx-swap="innerHTML"
+              style="margin-top:0.5rem;padding:0.35rem 0.75rem;font-size:0.85rem;cursor:pointer">
+        Test Mail credentials
+      </button>
+      <div id="test-mail-result" style="margin-top:0.4rem;min-height:1.2rem;font-size:0.875rem"></div>
+    </fieldset>
+
+    <div>
+      <button type="submit"
+              style="background:#2e7d32;color:#fff;border:none;border-radius:4px;padding:0.5rem 1.25rem;font-size:0.95rem;cursor:pointer">
+        Save Settings
+      </button>
+      <span id="save-result" style="margin-left:0.75rem;font-size:0.85rem;color:#2e7d32"></span>
+    </div>
+  </form>
+</div>
+{% endblock %}

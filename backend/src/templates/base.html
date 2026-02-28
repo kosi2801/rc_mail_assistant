@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Repair Café Mail Assistant{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f8f9fa; color: #212529; }
+    header { background: #2e7d32; color: #fff; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
+    header h1 { font-size: 1.1rem; font-weight: 600; }
+    nav a { color: #c8e6c9; text-decoration: none; margin-left: 1rem; font-size: 0.9rem; }
+    nav a:hover { color: #fff; }
+    .banner { background: #b71c1c; color: #fff; padding: 0.5rem 1.5rem; font-size: 0.875rem; display: none; }
+    .banner.visible { display: block; }
+    main { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
+    .card { background: #fff; border-radius: 6px; padding: 1.25rem 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); margin-bottom: 1rem; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header>
+    <h1>☕ Repair Café Mail Assistant</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/config">Config</a>
+    </nav>
+  </header>
+
+  {% if llm_degraded is defined and llm_degraded %}
+  <div class="banner visible" role="alert" aria-live="polite">
+    ⚠️ AI features are unavailable — LLM service is unreachable. Draft generation is disabled.
+  </div>
+  {% endif %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

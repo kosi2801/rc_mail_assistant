@@ -38,6 +38,21 @@ This creates:
 - `.specify/memory/constitution.md` — project principles that govern all architecture decisions; check this before designing anything
 - `.specify/templates/` — source-of-truth templates for specs, plans, tasks
 
+### Slash Commands
+
+Speckit pipeline stages are available as slash commands defined in `.github/prompts/`. To invoke them, type the command name (e.g. `speckit.specify`, `speckit.plan`) directly in the chat — Copilot will route to the correct agent automatically.
+
+| Slash Command | Agent file |
+|---|---|
+| `speckit.specify` | `.github/prompts/speckit.specify.prompt.md` |
+| `speckit.clarify` | `.github/prompts/speckit.clarify.prompt.md` |
+| `speckit.plan` | `.github/prompts/speckit.plan.prompt.md` |
+| `speckit.tasks` | `.github/prompts/speckit.tasks.prompt.md` |
+| `speckit.implement` | `.github/prompts/speckit.implement.prompt.md` |
+| `speckit.analyze` | `.github/prompts/speckit.analyze.prompt.md` |
+| `speckit.checklist` | `.github/prompts/speckit.checklist.prompt.md` |
+| `speckit.constitution` | `.github/prompts/speckit.constitution.prompt.md` |
+
 ## Conventions
 
 - **Branch names**: `###-kebab-case-name` (3-digit zero-padded number + short descriptor)

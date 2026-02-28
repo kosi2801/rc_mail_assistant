@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Repair Café Mail Assistant{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2 style="margin-bottom:0.5rem">Dashboard</h2>
+  <p style="color:#6c757d;margin-bottom:1.25rem;font-size:0.9rem">
+    System status at a glance. Use the Config page to update settings.
+  </p>
+
+  <div
+    hx-get="/health/fragment"
+    hx-trigger="load"
+    hx-target="#health-status"
+    hx-swap="outerHTML"
+  >
+    <div id="health-status" style="color:#6c757d;font-size:0.875rem">Loading health status…</div>
+  </div>
+
+  <p style="margin-top:1.25rem">
+    <a href="/config" style="color:#2e7d32;font-weight:600">→ Go to Config</a>
+  </p>
+</div>
+{% endblock %}

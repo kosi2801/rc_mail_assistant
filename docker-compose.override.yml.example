@@ -1,0 +1,20 @@
+# docker-compose.override.yml.example
+# Copy to docker-compose.override.yml to customise your local deployment.
+# This file is git-ignored — your overrides stay local.
+
+services:
+  backend:
+    # Uncomment to mount source code for live reload during development:
+    # volumes:
+    #   - ./backend:/app
+    # command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      # Override any .env values without editing .env:
+      # LOG_LEVEL: DEBUG
+      pass:
+
+  postgres:
+    # Expose port locally for psql / pgAdmin access:
+    # ports:
+    #   - "5432:5432"
+    pass:

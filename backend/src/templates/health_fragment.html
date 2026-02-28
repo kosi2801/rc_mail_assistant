@@ -1,0 +1,30 @@
+<div id="health-status">
+  <table style="width:100%;border-collapse:collapse">
+    <thead>
+      <tr style="text-align:left;border-bottom:1px solid #dee2e6">
+        <th style="padding:0.5rem 0.75rem">Service</th>
+        <th style="padding:0.5rem 0.75rem">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set rows = [("Database", health.db), ("LLM / Ollama", health.llm), ("Gmail Credentials", health.mail)] %}
+      {% for name, check in rows %}
+      <tr style="border-bottom:1px solid #f1f3f5">
+        <td style="padding:0.5rem 0.75rem">{{ name }}</td>
+        <td style="padding:0.5rem 0.75rem">
+          {% if check.value == "ok" %}
+            <span style="color:#2e7d32;font-weight:600">✓ ok</span>
+          {% elif check.value == "unconfigured" %}
+            <span style="color:#e65100">— unconfigured</span>
+          {% else %}
+            <span style="color:#b71c1c;font-weight:600">✗ unreachable</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p style="margin-top:0.75rem;font-size:0.8rem;color:#6c757d">
+    Overall: <strong>{{ health.overall }}</strong>
+  </p>
+</div>
