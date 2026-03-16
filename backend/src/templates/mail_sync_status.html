@@ -1,0 +1,40 @@
+{# mail_sync_status.html — HTMX polling fragment for GET /mail/sync/status #}
+{# Self-sustaining: carries its own hx-get/hx-trigger so the polling loop persists after each swap (F2) #}
+<div id="sync-status-container"
+     hx-get="/mail/sync/status"
+     hx-trigger="every 3s"
+     hx-swap="outerHTML">
+  {% if is_syncing %}
+  <button disabled
+          style="background:#6c757d;color:#fff;border:none;border-radius:4px;padding:0.5rem 1.25rem;font-size:0.95rem;cursor:not-allowed;opacity:0.85">
+    ⟳ Syncing…
+  </button>
+  {% else %}
+  <button
+    hx-post="/mail/sync"
+    hx-target="#sync-result"
+    hx-swap="innerHTML"
+    style="background:#2e7d32;color:#fff;border:none;border-radius:4px;padding:0.5rem 1.25rem;font-size:0.95rem;cursor:pointer">
+    Sync Mail
+  </button>
+  {% endif %}
+
+  {% if last_run and not is_syncing %}
+  <span style="margin-left:1rem;font-size:0.85rem;color:#6c757d">
+    Last sync:
+    {% if last_run.outcome == "success" %}
+      <span style="color:#2e7d32;font-weight:600">✓ success</span>
+    {% elif last_run.outcome == "partial" %}
+      <span style="color:#e65100;font-weight:600">⚠ partial</span>
+    {% elif last_run.outcome == "failed" %}
+      <span style="color:#b71c1c;font-weight:600">✗ failed</span>
+    {% else %}
+      <span style="color:#1565c0;font-weight:600">⟳ in progress</span>
+    {% endif %}
+    — {{ last_run.new_count }} new, {{ last_run.skipped_count }} skipped
+    {% if last_run.finished_at %}
+      at {{ last_run.finished_at.strftime('%Y-%m-%d %H:%M UTC') }}
+    {% endif %}
+  </span>
+  {% endif %}
+</div>

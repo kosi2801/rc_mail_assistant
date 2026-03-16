@@ -12,6 +12,10 @@ KNOWN_KEYS = frozenset({
     "event_date",
     "event_location",
     "event_offerings",
+    "mail_filter",
+    "mail_poll_interval_minutes",
+    "mail_sync_max_retries",
+    "mail_overlap_minutes",
 })
 
 

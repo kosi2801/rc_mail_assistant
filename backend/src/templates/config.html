@@ -51,6 +51,50 @@
     </fieldset>
 
     <fieldset style="border:1px solid #dee2e6;border-radius:4px;padding:1rem">
+      <legend style="font-weight:600;padding:0 0.25rem">Mail Settings</legend>
+      <label>
+        Mail filter
+        <input name="mail_filter" type="text" value="{{ config.get('mail_filter', 'in:inbox') }}"
+               placeholder="in:inbox"
+               style="width:100%;margin-top:0.25rem;padding:0.4rem 0.5rem;border:1px solid #ced4da;border-radius:4px" />
+        <span style="font-size:0.8rem;color:#6c757d;margin-top:0.2rem;display:block">
+          Gmail search query to select visit-request emails (e.g. <code>subject:Aanmelding</code>).
+        </span>
+      </label>
+      <label style="margin-top:0.75rem;display:block">
+        Mail poll interval (minutes)
+        <input name="mail_poll_interval_minutes" type="number" min="0"
+               value="{{ config.get('mail_poll_interval_minutes', '0') }}"
+               style="width:100%;margin-top:0.25rem;padding:0.4rem 0.5rem;border:1px solid #ced4da;border-radius:4px" />
+        <span style="font-size:0.8rem;color:#6c757d;margin-top:0.2rem;display:block">
+          Automatic sync interval in minutes. Set to 0 to disable background polling.
+        </span>
+      </label>
+      <label style="margin-top:0.75rem;display:block">
+        Max retries
+        <input name="mail_sync_max_retries" type="number" min="1"
+               value="{{ config.get('mail_sync_max_retries', '3') }}"
+               style="width:100%;margin-top:0.25rem;padding:0.4rem 0.5rem;border:1px solid #ced4da;border-radius:4px" />
+        <span style="font-size:0.8rem;color:#6c757d;margin-top:0.2rem;display:block">
+          Maximum Gmail API retry attempts per sync on rate-limit or server errors.
+        </span>
+      </label>
+      <label style="margin-top:0.75rem;display:block">
+        Overlap window (minutes)
+        <input name="mail_overlap_minutes" type="number" min="0"
+               value="{{ config.get('mail_overlap_minutes', '5') }}"
+               style="width:100%;margin-top:0.25rem;padding:0.4rem 0.5rem;border:1px solid #ced4da;border-radius:4px" />
+        <span style="font-size:0.8rem;color:#6c757d;margin-top:0.2rem;display:block">
+          Minutes of overlap with previous sync to guard against clock skew (default: 5).
+        </span>
+      </label>
+      <button type="submit"
+              style="margin-top:0.75rem;background:#1565c0;color:#fff;border:none;border-radius:4px;padding:0.4rem 1rem;font-size:0.85rem;cursor:pointer">
+        Save mail settings
+      </button>
+    </fieldset>
+
+    <fieldset style="border:1px solid #dee2e6;border-radius:4px;padding:1rem">
       <legend style="font-weight:600;padding:0 0.25rem">Service Connections</legend>
       <p style="font-size:0.85rem;color:#6c757d;margin-bottom:0.75rem">
         Gmail credentials are set via <code>.env</code> — not editable here.

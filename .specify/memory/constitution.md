@@ -1,13 +1,13 @@
 <!--
   Sync Impact Report
   ==================
-  Version change: (none) → 1.0.0  [Initial ratification]
-  Modified principles: N/A — initial adoption
-  Added sections: Core Principles (×5), Technology Stack & Deployment, Development Workflow, Governance
+  Version change: 1.0.0 → 1.1.0
+  Modified principles: II — Manual Synchronization (added Exception II.1 for operator-enabled background polling)
+  Added sections: Exception II.1 carve-out under Principle II
   Removed sections: N/A
   Templates:
     ✅ .specify/memory/constitution.md — this file
-    ✅ .specify/templates/plan-template.md — Constitution Check gates updated to reference concrete principles
+    ✅ .specify/templates/plan-template.md — Constitution Check gates reference principles by name; no update needed
     ✅ .specify/templates/spec-template.md — no constitution-specific references; no change required
     ✅ .specify/templates/tasks-template.md — no constitution-specific references; no change required
     ✅ .specify/templates/agent-file-template.md — no constitution-specific references; no change required
@@ -33,10 +33,23 @@ is a non-negotiable trust obligation to repair café visitors.
 ### II. Manual Synchronization
 
 Inbound Gmail sync and outbound draft creation MUST each be triggered by an explicit user action.
-No automated background polling, scheduled sending, or silent data transmission is permitted.
+No automated background polling, scheduled sending, or silent data transmission is permitted,
+**except as provided by the following approved exception**:
+
+> **Exception II.1 (Operator-Enabled Background Polling)**: An in-process, interval-based mail
+> sync scheduler (APScheduler `AsyncIOScheduler`) is permitted when ALL of the following
+> conditions hold: (a) the feature's implementation plan documents a Constitution Check against
+> this principle, (b) the scheduler is **disabled by default** (`mail_poll_interval_minutes = 0`)
+> and requires explicit operator opt-in via the config UI, (c) the scheduler runs in-process
+> (no external broker), and (d) every scheduled sync produces a `MailSyncRun` record with
+> `triggered_by = "scheduler"` so operator visibility is maintained. First approved for
+> feature `002-gmail-mail-sync` (clarification session 2026-02-28).
+
 Every sync operation MUST be idempotent so that re-triggering produces no duplicates or data loss.
 
 **Rationale**: Volunteers must remain in full control of what data enters and leaves the system.
+Optional operator-enabled polling with full auditability (MailSyncRun records) upholds this
+principle while reducing manual burden for active deployments.
 
 ### III. Minimal Footprint
 
@@ -115,4 +128,11 @@ Amendments require: (a) an updated `constitution.md` with an incremented version
 All feature plans MUST include a Constitution Check section with explicit pass/fail verdicts against
 each principle before implementation begins.
 
-**Version**: 1.0.0 | **Ratified**: 2026-02-21 | **Last Amended**: 2026-02-21
+**Version**: 1.1.0 | **Ratified**: 2026-02-21 | **Last Amended**: 2026-02-28
+
+**Changelog**:
+- `1.1.0` (2026-02-28): Added Exception II.1 to Principle II — permits operator-enabled
+  in-process background polling (disabled by default) for feature `002-gmail-mail-sync`.
+  Propagation check: plan-template.md Constitution Check gate references concrete principles
+  by name — no change needed. spec-template.md, tasks-template.md, agent-file-template.md —
+  no constitution-specific references; no change required.

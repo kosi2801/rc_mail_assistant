@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Mail — Repair Café Mail Assistant{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2 style="margin-bottom:1rem">Mail</h2>
+
+  {# Sync button — HTMX self-updating status fragment (FR-022) #}
+  <div hx-get="/mail/sync/status"
+       hx-trigger="load"
+       hx-swap="outerHTML">
+    {# Placeholder while loading #}
+    <button disabled style="background:#6c757d;color:#fff;border:none;border-radius:4px;padding:0.5rem 1.25rem;font-size:0.95rem;cursor:not-allowed;opacity:0.85">
+      Sync Mail
+    </button>
+  </div>
+
+  {# Sync result target — filled by POST /mail/sync #}
+  <div id="sync-result" style="margin-top:0.75rem"></div>
+
+  {# Last sync summary (from initial page load) #}
+  {% if last_run %}
+  <div style="margin-top:0.5rem;font-size:0.85rem;color:#6c757d">
+    Last sync:
+    {% if last_run.outcome == "success" %}
+      <span style="color:#2e7d32;font-weight:600">✓ success</span>
+    {% elif last_run.outcome == "partial" %}
+      <span style="color:#e65100;font-weight:600">⚠ partial</span>
+    {% elif last_run.outcome == "failed" %}
+      <span style="color:#b71c1c;font-weight:600">✗ failed</span>
+    {% else %}
+      <span style="color:#1565c0;font-weight:600">⟳ in progress</span>
+    {% endif %}
+    — {{ last_run.new_count }} new, {{ last_run.skipped_count }} skipped
+    {% if last_run.finished_at %}
+      at {{ last_run.finished_at.strftime('%Y-%m-%d %H:%M UTC') }}
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{# Email table / empty state #}
+<div class="card">
+  {% if not emails %}
+  <p style="color:#6c757d;text-align:center;padding:2rem 0">
+    No emails have been synced yet. Click "Sync Mail" to fetch your first batch.
+  </p>
+  {% else %}
+  <table style="width:100%;border-collapse:collapse;font-size:0.9rem">
+    <thead>
+      <tr style="border-bottom:2px solid #dee2e6;text-align:left">
+        <th style="padding:0.5rem 0.75rem">Sender</th>
+        <th style="padding:0.5rem 0.75rem">Subject</th>
+        <th style="padding:0.5rem 0.75rem">Received</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for email in emails %}
+      <tr style="border-bottom:1px solid #f0f0f0;cursor:pointer"
+          onclick="window.location='/mail/{{ email.id }}'"
+          onmouseover="this.style.background='#f8f9fa'"
+          onmouseout="this.style.background=''">
+        <td style="padding:0.5rem 0.75rem">
+          <a href="/mail/{{ email.id }}" style="color:#212529;text-decoration:none">
+            {{ email.sender_name }}
+          </a>
+        </td>
+        <td style="padding:0.5rem 0.75rem">
+          <a href="/mail/{{ email.id }}" style="color:#212529;text-decoration:none">
+            {{ email.subject or '(no subject)' }}
+          </a>
+        </td>
+        <td style="padding:0.5rem 0.75rem;white-space:nowrap;color:#6c757d">
+          {{ email.received_at.strftime('%Y-%m-%d %H:%M') if email.received_at }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+{# Advanced — cursor reset #}
+<div class="card">
+  <details>
+    <summary style="cursor:pointer;font-weight:600;user-select:none">Advanced</summary>
+    <div style="margin-top:1rem">
+      <h3 style="font-size:0.95rem;margin-bottom:0.5rem">Reset sync cursor</h3>
+      <p style="font-size:0.85rem;color:#6c757d;margin-bottom:0.75rem">
+        The next sync will fetch emails from this date forward.
+        Leave empty for a full re-sync from the beginning.
+      </p>
+      <form hx-post="/mail/cursor"
+            hx-target="#cursor-result"
+            hx-swap="innerHTML"
+            style="display:flex;flex-direction:column;gap:0.5rem;max-width:400px">
+        <label style="font-size:0.85rem">
+          Last synced at
+          <input type="datetime-local"
+                 name="last_synced_at"
+                 value="{{ cursor.last_synced_at.strftime('%Y-%m-%dT%H:%M') if cursor and cursor.last_synced_at else '' }}"
+                 style="display:block;width:100%;margin-top:0.25rem;padding:0.4rem 0.5rem;border:1px solid #ced4da;border-radius:4px" />
+          <span style="font-size:0.8rem;color:#6c757d">Leave empty = full re-sync</span>
+        </label>
+        <div>
+          <button type="submit"
+                  style="background:#6c757d;color:#fff;border:none;border-radius:4px;padding:0.4rem 1rem;font-size:0.85rem;cursor:pointer">
+            Reset cursor
+          </button>
+        </div>
+      </form>
+      <div id="cursor-result" style="margin-top:0.5rem;font-size:0.875rem"></div>
+    </div>
+  </details>
+</div>
+{% endblock %}

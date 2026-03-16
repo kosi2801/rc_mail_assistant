@@ -28,8 +28,9 @@ async def health_fragment(request: Request):
     """HTML fragment for HTMX inline embedding (no full page wrapper)."""
     result = await get_health()
     return templates.TemplateResponse(
+        request,
         "health_fragment.html",
-        {"request": request, "health": result},
+        {"health": result},
     )
 
 
@@ -38,6 +39,7 @@ async def health_page(request: Request):
     """Full health status page."""
     result = await get_health()
     return templates.TemplateResponse(
+        request,
         "health.html",
-        {"request": request, "health": result, "llm_degraded": result.llm.value != "ok"},
+        {"health": result, "llm_degraded": result.llm.value != "ok"},
     )

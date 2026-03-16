@@ -26,19 +26,25 @@ async def config_page(request: Request, session: AsyncSession = Depends(get_sess
     config = await config_service.get_all(session)
     llm_degraded = not settings.ollama_base_url
     return templates.TemplateResponse(
+        request,
         "config.html",
-        {"request": request, "config": config, "llm_degraded": llm_degraded},
+        {"config": config, "llm_degraded": llm_degraded},
     )
 
 
 @router.post("/config")
 async def save_config(
+    request: Request,
     session: AsyncSession = Depends(get_session),
     llm_endpoint: str | None = Form(None),
     llm_model: str | None = Form(None),
     event_date: str | None = Form(None),
     event_location: str | None = Form(None),
     event_offerings: str | None = Form(None),
+    mail_filter: str | None = Form(None),
+    mail_poll_interval_minutes: str | None = Form(None),
+    mail_sync_max_retries: str | None = Form(None),
+    mail_overlap_minutes: str | None = Form(None),
 ):
     # Empty strings from form inputs are treated as "no change"
     raw = {
@@ -47,10 +53,27 @@ async def save_config(
         "event_date": event_date,
         "event_location": event_location,
         "event_offerings": event_offerings,
+        "mail_filter": mail_filter,
+        "mail_poll_interval_minutes": mail_poll_interval_minutes,
+        "mail_sync_max_retries": mail_sync_max_retries,
+        "mail_overlap_minutes": mail_overlap_minutes,
     }
     updates = {k: v for k, v in raw.items() if v}  # skip None and ""
     logger.info("config_save", keys=sorted(updates.keys()))
-    return await config_service.upsert(session, updates)
+    result = await config_service.upsert(session, updates)
+
+    # Reschedule APScheduler if poll interval changed (T023)
+    if "mail_poll_interval_minutes" in updates:
+        try:
+            from src.services import scheduler_service  # noqa: PLC0415
+
+            minutes = int(updates["mail_poll_interval_minutes"])
+            scheduler_service.update_poll_interval(request.app.state.scheduler, minutes)
+            logger.info("config_scheduler_rescheduled", minutes=minutes)
+        except (ValueError, AttributeError, Exception) as exc:
+            logger.warning("config_scheduler_reschedule_failed", error=str(exc))
+
+    return result
 
 
 _STATUS_STYLES = {

@@ -1,0 +1,41 @@
+{# mail_sync_result.html — HTMX fragment: sync outcome inline in mail list page #}
+{% if run.outcome is none %}
+<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:4px;padding:0.75rem 1rem;margin-bottom:1rem">
+  <span style="background:#1565c0;color:#fff;border-radius:3px;padding:0.15rem 0.5rem;font-size:0.8rem;font-weight:600">⟳ Sync already in progress</span>
+</div>
+{% elif run.outcome == "success" %}
+<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:4px;padding:0.75rem 1rem;margin-bottom:1rem">
+  <span style="background:#2e7d32;color:#fff;border-radius:3px;padding:0.15rem 0.5rem;font-size:0.8rem;font-weight:600">✓ success</span>
+  <span style="margin-left:0.5rem;color:#1b5e20">
+    {{ run.new_count }} new email(s) fetched,
+    {{ run.skipped_count }} duplicate(s) skipped
+  </span>
+  {% if run.finished_at %}
+  <span style="margin-left:0.75rem;font-size:0.8rem;color:#6c757d">{{ run.finished_at.strftime('%Y-%m-%d %H:%M:%S UTC') if run.finished_at }}</span>
+  {% endif %}
+</div>
+{% elif run.outcome == "partial" %}
+<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:4px;padding:0.75rem 1rem;margin-bottom:1rem">
+  <span style="background:#e65100;color:#fff;border-radius:3px;padding:0.15rem 0.5rem;font-size:0.8rem;font-weight:600">⚠ partial</span>
+  <span style="margin-left:0.5rem;color:#bf360c">
+    {{ run.new_count }} email(s) stored before error
+  </span>
+  {% if run.error_message %}
+  <div style="margin-top:0.4rem;font-size:0.85rem;color:#6c757d;word-break:break-word">{{ run.error_message }}</div>
+  {% endif %}
+  {% if run.finished_at %}
+  <span style="font-size:0.8rem;color:#6c757d">{{ run.finished_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</span>
+  {% endif %}
+</div>
+{% elif run.outcome == "failed" %}
+<div style="background:#ffebee;border:1px solid #ef9a9a;border-radius:4px;padding:0.75rem 1rem;margin-bottom:1rem">
+  <span style="background:#b71c1c;color:#fff;border-radius:3px;padding:0.15rem 0.5rem;font-size:0.8rem;font-weight:600">✗ failed</span>
+  <span style="margin-left:0.5rem;color:#b71c1c">0 new emails</span>
+  {% if run.error_message %}
+  <div style="margin-top:0.4rem;font-size:0.85rem;color:#6c757d;word-break:break-word">{{ run.error_message }}</div>
+  {% endif %}
+  {% if run.finished_at %}
+  <span style="font-size:0.8rem;color:#6c757d">{{ run.finished_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</span>
+  {% endif %}
+</div>
+{% endif %}

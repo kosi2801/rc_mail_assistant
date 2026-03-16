@@ -42,8 +42,52 @@ async def lifespan(app: FastAPI):
     await asyncio.to_thread(alembic_command.upgrade, alembic_cfg, "head")
     logger.info("startup_migrations_ok")
 
+    # Wire mail adapter (T013)
+    from google.auth.exceptions import RefreshError  # noqa: PLC0415
+    from src.adapters.gmail_adapter import GmailAdapter  # noqa: PLC0415
+    from src.services.mail_service import MailCredentialsError, NullMailAdapter, run_sync  # noqa: PLC0415
+
+    try:
+        app.state.mail_adapter = GmailAdapter()
+        logger.info("startup_mail_adapter_ok")
+    except (RefreshError, MailCredentialsError) as exc:
+        logger.warning("startup_mail_adapter_failed", error=str(exc))
+        app.state.mail_adapter = NullMailAdapter()
+
+    # Wire scheduler (T022)
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler  # noqa: PLC0415
+    from sqlalchemy import select  # noqa: PLC0415
+    from src.models.settings import Setting  # noqa: PLC0415
+    from src.services import scheduler_service  # noqa: PLC0415
+    from src.database import AsyncSessionLocal  # noqa: PLC0415
+
+    scheduler = AsyncIOScheduler()
+
+    # Read poll interval from settings table (default 0 = disabled)
+    poll_minutes = 0
+    try:
+        async with AsyncSessionLocal() as _sess:
+            result = await _sess.execute(
+                select(Setting.value).where(Setting.key == "mail_poll_interval_minutes")
+            )
+            row = result.scalar_one_or_none()
+            if row:
+                poll_minutes = int(row)
+    except Exception as exc:
+        logger.warning("startup_scheduler_poll_interval_read_failed", error=str(exc))
+
+    async def _sync_fn() -> None:
+        """Bound coroutine passed to the scheduler."""
+        async with AsyncSessionLocal() as _session:
+            await run_sync(app.state.mail_adapter, _session, triggered_by="scheduler")
+
+    await scheduler_service.start(scheduler, poll_minutes, _sync_fn)
+    app.state.scheduler = scheduler
+    logger.info("startup_scheduler_ok", poll_minutes=poll_minutes)
+
     yield
 
+    await scheduler_service.shutdown(app.state.scheduler)
     logger.info("shutdown")
 
 
@@ -59,9 +103,11 @@ from fastapi.templating import Jinja2Templates  # noqa: E402
 from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
 
 from src.api import health, config as config_router  # noqa: E402
+from src.api import mail as mail_router  # noqa: E402
 
 app.include_router(health.router)
 app.include_router(config_router.router)
+app.include_router(mail_router.router)
 
 _templates = Jinja2Templates(directory="src/templates")
 
@@ -69,8 +115,9 @@ _templates = Jinja2Templates(directory="src/templates")
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     return _templates.TemplateResponse(
+        request,
         "error.html",
-        {"request": request, "status_code": exc.status_code, "detail": exc.detail},
+        {"status_code": exc.status_code, "detail": exc.detail},
         status_code=exc.status_code,
     )
 
@@ -78,4 +125,4 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """Root landing page — inline health summary (FR-013)."""
-    return _templates.TemplateResponse("dashboard.html", {"request": request})
+    return _templates.TemplateResponse(request, "dashboard.html")
