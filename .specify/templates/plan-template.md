@@ -31,17 +31,7 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Verify each principle against the feature design. Mark ✅ PASS or ❌ FAIL with one-line justification.
-
-| # | Principle | Status | Notes |
-|---|-----------|--------|-------|
-| I | **Privacy-First** — only plain-text stored locally; no raw HTML, no credentials committed, no data outside local network | | |
-| II | **Manual Synchronization** — all inbound/outbound actions are user-triggered; idempotent on retry | | |
-| III | **Minimal Footprint** — runs on RPi5 / Docker; no new heavy dependencies; models work offline | | |
-| IV | **Modular Design** — LLM, mail, DB, vector-search each behind a swappable interface; no cross-boundary direct imports | | |
-| V | **Resilience & Idempotency** — all writes upsert-safe; clean resume after Docker restart; health-check endpoint present | | |
-
-**Gate result**: [PASS / FAIL — list any failing principles and required mitigations before proceeding]
+[Gates determined based on constitution file]
 
 ## Project Structure
 
