@@ -7,7 +7,7 @@
       </tr>
     </thead>
     <tbody>
-      {% set rows = [("Database", health.db), ("LLM / Ollama", health.llm), ("Gmail Credentials", health.mail)] %}
+      {% set rows = [("Database", health.db), ("LLM / Ollama", health.llm)] %}
       {% for name, check in rows %}
       <tr style="border-bottom:1px solid #f1f3f5">
         <td style="padding:0.5rem 0.75rem">{{ name }}</td>
@@ -22,6 +22,37 @@
         </td>
       </tr>
       {% endfor %}
+      {# Row A: Gmail App Credentials (env-var presence) #}
+      <tr style="border-bottom:1px solid #f1f3f5">
+        <td style="padding:0.5rem 0.75rem">Gmail App Credentials</td>
+        <td style="padding:0.5rem 0.75rem">
+          {% if gmail_oauth_configured %}
+            <span style="color:#2e7d32;font-weight:600">✓ Configured</span>
+          {% else %}
+            <span style="color:#6c757d">— Not Configured</span>
+          {% endif %}
+          <a href="/config" style="margin-left:0.5rem;font-size:0.8rem;color:#1565c0">config →</a>
+        </td>
+      </tr>
+      {# Row B: Gmail OAuth Token (DB-backed, graceful degradation) #}
+      <tr style="border-bottom:1px solid #f1f3f5">
+        <td style="padding:0.5rem 0.75rem">Gmail OAuth Token</td>
+        <td style="padding:0.5rem 0.75rem">
+          {% if gmail_status == "ok" %}
+            <span style="color:#2e7d32;font-weight:600">✓ Connected</span>
+            {% if gmail_account %}
+              <span style="color:#555;font-size:0.85rem"> — {{ gmail_account }}</span>
+            {% endif %}
+          {% elif gmail_status == "token_error" %}
+            <span style="color:#b71c1c;font-weight:600">⚠ Token Error</span>
+          {% elif gmail_status == "unconfigured" %}
+            <span style="color:#e65100">— Not Connected</span>
+          {% else %}
+            <span style="color:#6c757d">? Unknown</span>
+          {% endif %}
+          <a href="/config" style="margin-left:0.5rem;font-size:0.8rem;color:#1565c0">config →</a>
+        </td>
+      </tr>
     </tbody>
   </table>
   <p style="margin-top:0.75rem;font-size:0.8rem;color:#6c757d">
