@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     ollama_base_url: str = ""
     gmail_client_id: str = ""
     gmail_client_secret: str = ""
+    # DEPRECATED: gmail_refresh_token is kept temporarily for FR-009 startup migration
+    # (GmailCredentialService.maybe_migrate_from_env reads this value on first boot after upgrade
+    # and imports it into the database). Once migrated, this env var can be removed from .env.
+    # DO NOT USE after migration; remove in a follow-up feature once migration period ends.
     gmail_refresh_token: str = ""
 
     # Startup retry tuning

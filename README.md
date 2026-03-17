@@ -37,22 +37,28 @@ The app reads emails from a Gmail inbox using OAuth 2.0. Follow these steps once
    GMAIL_CLIENT_SECRET=<your-client-secret>
    ```
 
-#### 2.2 Obtain a refresh token via OAuth Playground
+#### 2.2 Connect Gmail from the Configuration page
 
-1. Open [Google OAuth 2.0 Playground](https://developers.google.com/oauthplayground).
-2. Click the **⚙️ gear icon** (top right) and check **"Use your own OAuth credentials"**.
-3. Enter your **Client ID** and **Client Secret** from step 2.1.
-4. In the left panel, scroll to **Gmail API v1** and select the scope:
-   `https://mail.google.com/`
-5. Click **Authorize APIs** and sign in with the Gmail account you added as a test user.
-6. After consent, click **Exchange authorization code for tokens**.
-7. Copy the **Refresh token** from the response panel.
-8. Set it in your `.env`:
-   ```
-   GMAIL_REFRESH_TOKEN=<your-refresh-token>
-   ```
+Once the application is running with `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET` set in `.env`:
 
-> **Note:** The refresh token is long-lived. Store it securely and never commit it to version control.
+1. Open the web UI at [http://localhost:8000](http://localhost:8000).
+2. Navigate to the **Configuration** page.
+3. In the **Gmail Connection** section, click **Connect Gmail**.
+4. You will be redirected to Google's consent screen — sign in with the Gmail
+   account you added as a test user and grant access.
+5. After successful authorization, you are redirected back to the Configuration
+   page with a confirmation banner: _"Gmail connected successfully."_
+
+The refresh token is stored encrypted in the application database (AES-128-CBC via
+Fernet, key derived from `SECRET_KEY`). You do **not** need to copy or paste any
+tokens manually.
+
+To **re-authorize** (e.g. after revoking access or rotating `SECRET_KEY`), click
+**Re-authorize** on the Configuration page. To **disconnect**, click **Disconnect**.
+
+> **Note:** `GMAIL_REFRESH_TOKEN` is no longer required in `.env`. If it is still
+> present from a previous setup, the application will automatically import it into
+> the database on first boot and log a reminder to remove the redundant entry.
 
 ### 3. Start the application
 

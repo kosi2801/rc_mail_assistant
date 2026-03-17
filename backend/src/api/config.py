@@ -25,10 +25,33 @@ TEST_TIMEOUT = 5.0  # seconds
 async def config_page(request: Request, session: AsyncSession = Depends(get_session)):
     config = await config_service.get_all(session)
     llm_degraded = not settings.ollama_base_url
+
+    # Gmail connection context (T015)
+    from src.services.gmail_credential_service import GmailCredentialService, mask_email  # noqa: PLC0415
+    _cred_svc = GmailCredentialService(session)
+    gmail_status = (await _cred_svc.get_connection_status()).value
+    _cred_record = await _cred_svc.get()
+    gmail_account = mask_email(_cred_record.account_email) if _cred_record else None
+    gmail_oauth_configured = bool(settings.gmail_client_id and settings.gmail_client_secret)
+
+    # Notification query params
+    gmail_connected = request.query_params.get("gmail_connected") == "1"
+    gmail_error = request.query_params.get("gmail_error") or None
+    gmail_disconnected = request.query_params.get("gmail_disconnected") == "1"
+
     return templates.TemplateResponse(
         request,
         "config.html",
-        {"config": config, "llm_degraded": llm_degraded},
+        {
+            "config": config,
+            "llm_degraded": llm_degraded,
+            "gmail_status": gmail_status,
+            "gmail_account": gmail_account,
+            "gmail_connected": gmail_connected,
+            "gmail_error": gmail_error,
+            "gmail_disconnected": gmail_disconnected,
+            "gmail_oauth_configured": gmail_oauth_configured,
+        },
     )
 
 
@@ -81,8 +104,15 @@ _STATUS_STYLES = {
     "unconfigured":    "color:#e65100",                  # amber
     "unreachable":     "color:#b71c1c;font-weight:600",  # red
     "model_not_found": "color:#e65100",                  # amber — Ollama up, model missing
+    "token_error":     "color:#b71c1c;font-weight:600",  # red — stored token invalid
 }
-_STATUS_ICONS = {"ok": "✓", "unconfigured": "—", "unreachable": "✗", "model_not_found": "—"}
+_STATUS_ICONS = {
+    "ok": "✓",
+    "unconfigured": "—",
+    "unreachable": "✗",
+    "model_not_found": "—",
+    "token_error": "✗",
+}
 
 
 def _test_html(status: str, detail: str) -> HTMLResponse:
@@ -137,10 +167,25 @@ async def test_connection(service: str, session: AsyncSession = Depends(get_sess
             logger.warning("config_test_llm", status="model_not_found", model=model, installed=available)
             return _test_html("model_not_found", f"Ollama is reachable but model '{model}' is not installed. Run: ollama pull {model}")
 
-    # mail
-    creds = (settings.gmail_client_id, settings.gmail_client_secret, settings.gmail_refresh_token)
-    if all(creds):
-        logger.info("config_test_mail", status="ok")
-        return _test_html("ok", "Gmail credentials are present")
-    logger.info("config_test_mail", status="unconfigured")
-    return _test_html("unconfigured", "One or more GMAIL_* env vars are missing")
+    # mail — DB-based credential check (T022)
+    if not settings.gmail_client_id or not settings.gmail_client_secret:
+        logger.info("config_test_mail", status="unconfigured")
+        return _test_html("unconfigured", "GMAIL_CLIENT_ID or GMAIL_CLIENT_SECRET is not set")
+
+    from src.services.gmail_credential_service import GmailCredentialService  # noqa: PLC0415
+    from cryptography.fernet import InvalidToken  # noqa: PLC0415
+
+    _cred_svc = GmailCredentialService(session)
+    _record = await _cred_svc.get()
+    if _record is None:
+        logger.info("config_test_mail", status="unconfigured")
+        return _test_html("unconfigured", "No Gmail credential stored — use the Connect Gmail button")
+
+    try:
+        await _cred_svc.decrypt_token(_record)
+    except InvalidToken:
+        logger.warning("config_test_mail", status="token_error")
+        return _test_html("token_error", "Stored token is invalid (SECRET_KEY rotated?) — please re-authorize")
+
+    logger.info("config_test_mail", status="ok")
+    return _test_html("ok", "Gmail credential is present and decrypts successfully")

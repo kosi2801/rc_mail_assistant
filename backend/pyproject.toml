@@ -24,6 +24,9 @@ dependencies = [
     "google-auth-httplib2>=0.1",
     "html2text>=2024.2",
     "apscheduler>=3.10,<4.0",
+    "cryptography>=42.0",
+    "google-auth-oauthlib>=1.2",
+    "itsdangerous>=2.1",
 ]
 
 [project.optional-dependencies]

@@ -96,9 +96,95 @@
 
     <fieldset style="border:1px solid #dee2e6;border-radius:4px;padding:1rem">
       <legend style="font-weight:600;padding:0 0.25rem">Service Connections</legend>
-      <p style="font-size:0.85rem;color:#6c757d;margin-bottom:0.75rem">
-        Gmail credentials are set via <code>.env</code> — not editable here.
-      </p>
+
+      <!-- Gmail Connection Section (States A / B / C) -->
+      {% if gmail_connected %}
+      <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:4px;padding:0.6rem 0.9rem;margin-bottom:0.75rem;font-size:0.875rem;color:#1b5e20">
+        ✓ Gmail connected successfully.
+      </div>
+      {% endif %}
+      {% if gmail_disconnected %}
+      <div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:4px;padding:0.6rem 0.9rem;margin-bottom:0.75rem;font-size:0.875rem;color:#e65100">
+        Gmail has been disconnected.
+      </div>
+      {% endif %}
+      {% if gmail_error %}
+      <div style="background:#ffebee;border:1px solid #ef9a9a;border-radius:4px;padding:0.6rem 0.9rem;margin-bottom:0.75rem;font-size:0.875rem;color:#b71c1c">
+        {% if gmail_error == "cancelled" %}Gmail authorization was cancelled.
+        {% elif gmail_error == "no_refresh_token" %}Google did not return a refresh token. Please try connecting again (make sure to grant access).
+        {% elif gmail_error == "db_write_failed" %}Failed to save credentials to the database. Please check logs and try again.
+        {% elif gmail_error == "oauth_unconfigured" %}Gmail client credentials are not configured. Set <code>GMAIL_CLIENT_ID</code> and <code>GMAIL_CLIENT_SECRET</code> in <code>.env</code> and restart.
+        {% else %}Gmail connection error: {{ gmail_error }}{% endif %}
+      </div>
+      {% endif %}
+
+      <fieldset id="gmail-connection-section" style="border:1px solid #c8e6c9;border-radius:4px;padding:0.75rem;margin-bottom:0.75rem">
+        <legend style="font-weight:600;padding:0 0.25rem">Gmail Connection</legend>
+
+        {% if gmail_status == "ok" %}
+        <!-- State B: Connected -->
+        <p style="font-size:0.85rem;margin-bottom:0.5rem">
+          Status: <strong style="color:#2e7d32">✓ Connected</strong>
+          {% if gmail_account %} — <span style="color:#555">{{ gmail_account }}</span>{% endif %}
+        </p>
+        <a href="/auth/gmail/initiate"
+           style="display:inline-block;padding:0.35rem 0.75rem;font-size:0.85rem;background:#1565c0;color:#fff;border-radius:4px;text-decoration:none;cursor:pointer;margin-right:0.5rem">
+          Re-authorize
+        </a>
+        <button type="button"
+                hx-post="/auth/gmail/disconnect"
+                hx-target="#gmail-connection-section"
+                hx-swap="outerHTML"
+                style="padding:0.35rem 0.75rem;font-size:0.85rem;background:#b71c1c;color:#fff;border:none;border-radius:4px;cursor:pointer">
+          Disconnect
+        </button>
+
+        {% elif gmail_status == "token_error" %}
+        <!-- State C: Token Error -->
+        <p style="font-size:0.85rem;margin-bottom:0.5rem">
+          Status: <strong style="color:#b71c1c">✗ Token Error — Re-authorization required</strong>
+          {% if gmail_account %} — <span style="color:#555">{{ gmail_account }}</span>{% endif %}
+        </p>
+        <p style="font-size:0.8rem;color:#6c757d;margin-bottom:0.5rem">
+          The stored token is no longer valid (SECRET_KEY may have been rotated, or Google revoked access).
+          Please re-authorize to restore Gmail sync.
+        </p>
+        <a href="/auth/gmail/initiate"
+           style="display:inline-block;padding:0.35rem 0.75rem;font-size:0.85rem;background:#1565c0;color:#fff;border-radius:4px;text-decoration:none;cursor:pointer;margin-right:0.5rem">
+          Re-authorize
+        </a>
+        <button type="button"
+                hx-post="/auth/gmail/disconnect"
+                hx-target="#gmail-connection-section"
+                hx-swap="outerHTML"
+                style="padding:0.35rem 0.75rem;font-size:0.85rem;background:#b71c1c;color:#fff;border:none;border-radius:4px;cursor:pointer">
+          Disconnect
+        </button>
+
+        {% else %}
+        <!-- State A: Not Connected -->
+        <p style="font-size:0.85rem;color:#6c757d;margin-bottom:0.5rem">
+          Status: <strong>Not connected</strong>
+        </p>
+        {% if gmail_oauth_configured %}
+        <a href="/auth/gmail/initiate"
+           style="display:inline-block;padding:0.35rem 0.75rem;font-size:0.85rem;background:#1565c0;color:#fff;border-radius:4px;text-decoration:none;cursor:pointer">
+          Connect Gmail
+        </a>
+        {% else %}
+        <button disabled
+                style="padding:0.35rem 0.75rem;font-size:0.85rem;cursor:not-allowed;opacity:0.6">
+          Connect Gmail (app credentials required)
+        </button>
+        <p style="font-size:0.8rem;color:#6c757d;margin-top:0.4rem">
+          Set <code>GMAIL_CLIENT_ID</code> and <code>GMAIL_CLIENT_SECRET</code>
+          in <code>.env</code> and restart the application.
+        </p>
+        {% endif %}
+        {% endif %}
+      </fieldset>
+      <!-- End Gmail Connection Section -->
+
       <button type="button" hx-post="/config/test/db" hx-target="#test-db-result" hx-swap="innerHTML"
               style="padding:0.35rem 0.75rem;font-size:0.85rem;cursor:pointer">
         Test DB

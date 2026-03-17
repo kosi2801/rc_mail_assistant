@@ -20,7 +20,6 @@ from tenacity import (
     wait_exponential,
 )
 
-from src.config import settings as app_settings
 from src.logging_config import get_logger
 from src.services.mail_service import (
     ConnectorStatus,
@@ -49,16 +48,34 @@ class GmailAdapter(MailAdapter):
     """Full Gmail API adapter (research.md decisions §1-§10).
 
     Credential construction (§1):
-        Builds ``google.oauth2.credentials.Credentials`` from env vars and
-        eagerly calls ``creds.refresh(Request())`` to fail fast on bad creds.
+        Accepts explicit ``refresh_token``, ``client_id``, ``client_secret``
+        parameters. Builds ``google.oauth2.credentials.Credentials`` and eagerly
+        calls ``creds.refresh(Request())`` to fail fast on bad creds.
+        No ``app_settings`` reads in the adapter (Principle IV — Modular Design).
 
     Blocking calls (§2):
         All ``googleapiclient`` calls wrapped in ``run_in_executor`` using
         ``asyncio.get_event_loop()``, with ``cache_discovery=False``.
     """
 
-    def __init__(self) -> None:
-        creds = self._build_credentials()
+    def __init__(
+        self,
+        refresh_token: str,
+        client_id: str,
+        client_secret: str,
+    ) -> None:
+        """Build and eagerly verify Gmail API credentials.
+
+        Args:
+            refresh_token: OAuth refresh token (plaintext, from GmailCredentialService).
+            client_id: GMAIL_CLIENT_ID from settings.
+            client_secret: GMAIL_CLIENT_SECRET from settings.
+
+        Raises:
+            MailCredentialsError: If any credential parameter is empty.
+            google.auth.exceptions.RefreshError: If token refresh fails.
+        """
+        creds = self._build_credentials(refresh_token, client_id, client_secret)
         self._svc = build("gmail", "v1", credentials=creds, cache_discovery=False)
         logger.info("gmail_adapter_initialized")
 
@@ -67,26 +84,30 @@ class GmailAdapter(MailAdapter):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _build_credentials() -> Credentials:
-        """Build and eagerly refresh OAuth2 credentials (research §1)."""
-        if not all(
-            [
-                app_settings.gmail_client_id,
-                app_settings.gmail_client_secret,
-                app_settings.gmail_refresh_token,
-            ]
-        ):
+    def _build_credentials(
+        refresh_token: str,
+        client_id: str,
+        client_secret: str,
+    ) -> Credentials:
+        """Build and eagerly refresh OAuth2 credentials (research §1).
+
+        Args:
+            refresh_token: Plaintext OAuth refresh token.
+            client_id: Google OAuth client ID.
+            client_secret: Google OAuth client secret.
+        """
+        if not all([refresh_token, client_id, client_secret]):
             raise MailCredentialsError(
                 "Gmail credentials could not be loaded. "
-                "Check GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and GMAIL_REFRESH_TOKEN in .env."
+                "Check GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and the stored refresh token."
             )
 
         creds = Credentials(
             token=None,
-            refresh_token=app_settings.gmail_refresh_token,
+            refresh_token=refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=app_settings.gmail_client_id,
-            client_secret=app_settings.gmail_client_secret,
+            client_id=client_id,
+            client_secret=client_secret,
         )
         # Eagerly refresh to fail fast on bad creds (research §1)
         try:
@@ -104,7 +125,7 @@ class GmailAdapter(MailAdapter):
     @staticmethod
     async def _run(fn):
         """Execute a blocking callable in the default thread pool (research §2)."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, fn)
 
     # ------------------------------------------------------------------
@@ -140,15 +161,11 @@ class GmailAdapter(MailAdapter):
     # ------------------------------------------------------------------
 
     async def get_status(self) -> ConnectorStatus:
-        """Credential presence check — no outbound API call (FR-016)."""
-        if not all(
-            [
-                app_settings.gmail_client_id,
-                app_settings.gmail_client_secret,
-                app_settings.gmail_refresh_token,
-            ]
-        ):
-            return ConnectorStatus.UNCONFIGURED
+        """Credential presence check — no outbound API call (FR-016).
+
+        Note: The adapter is only constructed when credentials are valid.
+        If construction succeeded, the adapter is operational.
+        """
         return ConnectorStatus.OK
 
     async def fetch_new_emails(

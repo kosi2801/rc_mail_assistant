@@ -183,3 +183,48 @@ def test_html_to_text_strips_links_and_images():
     # Meaningful text should be preserved
     assert "here" in result
     assert "Visit request confirmed" in result
+
+
+# ---------------------------------------------------------------------------
+# Test 7: explicit-credential constructor (T023)
+# ---------------------------------------------------------------------------
+
+
+def test_build_credentials_raises_on_missing_param():
+    """_build_credentials raises MailCredentialsError when any param is empty (T023)."""
+    from src.adapters.gmail_adapter import GmailAdapter
+    from src.services.mail_service import MailCredentialsError
+
+    # Missing refresh_token
+    with pytest.raises(MailCredentialsError):
+        GmailAdapter._build_credentials(
+            refresh_token="",
+            client_id="client-id",
+            client_secret="client-secret",
+        )
+
+    # Missing client_id
+    with pytest.raises(MailCredentialsError):
+        GmailAdapter._build_credentials(
+            refresh_token="token",
+            client_id="",
+            client_secret="client-secret",
+        )
+
+    # Missing client_secret
+    with pytest.raises(MailCredentialsError):
+        GmailAdapter._build_credentials(
+            refresh_token="token",
+            client_id="client-id",
+            client_secret="",
+        )
+
+
+async def test_get_status_returns_ok():
+    """GmailAdapter.get_status() returns OK (adapter is operational once constructed)."""
+    from src.adapters.gmail_adapter import GmailAdapter
+    from src.services.mail_service import ConnectorStatus
+
+    adapter = _make_adapter()
+    status = await adapter.get_status()
+    assert status == ConnectorStatus.OK

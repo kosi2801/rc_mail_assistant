@@ -3,9 +3,12 @@ import asyncio
 import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
+from alembic import command as alembic_command
+from alembic.config import Config as AlembicConfig
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src import logging_config
 from src.config import settings
@@ -42,24 +45,42 @@ async def lifespan(app: FastAPI):
     await asyncio.to_thread(alembic_command.upgrade, alembic_cfg, "head")
     logger.info("startup_migrations_ok")
 
-    # Wire mail adapter (T013)
+    # Wire mail adapter (T014) — load credentials from DB, not env vars
+    from cryptography.fernet import InvalidToken  # noqa: PLC0415
     from google.auth.exceptions import RefreshError  # noqa: PLC0415
     from src.adapters.gmail_adapter import GmailAdapter  # noqa: PLC0415
+    from src.database import AsyncSessionLocal  # noqa: PLC0415
+    from src.services.gmail_credential_service import GmailCredentialService  # noqa: PLC0415
     from src.services.mail_service import MailCredentialsError, NullMailAdapter, run_sync  # noqa: PLC0415
 
-    try:
-        app.state.mail_adapter = GmailAdapter()
-        logger.info("startup_mail_adapter_ok")
-    except (RefreshError, MailCredentialsError) as exc:
-        logger.warning("startup_mail_adapter_failed", error=str(exc))
-        app.state.mail_adapter = NullMailAdapter()
+    async with AsyncSessionLocal() as _startup_session:
+        _cred_svc = GmailCredentialService(_startup_session)
+
+        # FR-009: migrate GMAIL_REFRESH_TOKEN env var to DB if not yet done
+        await _cred_svc.maybe_migrate_from_env()
+
+        # Attempt to wire GmailAdapter from DB credential
+        try:
+            _record = await _cred_svc.get()
+            if _record is None:
+                raise MailCredentialsError("No Gmail credential stored in database")
+            _plaintext = await _cred_svc.decrypt_token(_record)
+            app.state.mail_adapter = GmailAdapter(
+                refresh_token=_plaintext,
+                client_id=settings.gmail_client_id,
+                client_secret=settings.gmail_client_secret,
+            )
+            logger.info("startup_mail_adapter_ok")
+        except (RefreshError, MailCredentialsError, InvalidToken) as exc:
+            logger.warning("startup_mail_adapter_failed", error=str(exc))
+            app.state.mail_adapter = NullMailAdapter()
 
     # Wire scheduler (T022)
     from apscheduler.schedulers.asyncio import AsyncIOScheduler  # noqa: PLC0415
     from sqlalchemy import select  # noqa: PLC0415
     from src.models.settings import Setting  # noqa: PLC0415
     from src.services import scheduler_service  # noqa: PLC0415
-    from src.database import AsyncSessionLocal  # noqa: PLC0415
+    # AsyncSessionLocal and run_sync already imported above
 
     scheduler = AsyncIOScheduler()
 
@@ -94,20 +115,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Repair Cafe Mail Assistant", lifespan=lifespan)
 
 # Import and register routers after app creation to avoid circular imports
-from alembic import command as alembic_command  # noqa: E402
-from alembic.config import Config as AlembicConfig  # noqa: E402
-from fastapi import Request  # noqa: E402
-from fastapi.exceptions import RequestValidationError  # noqa: E402
-from fastapi.responses import HTMLResponse  # noqa: E402
-from fastapi.templating import Jinja2Templates  # noqa: E402
-from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
-
 from src.api import health, config as config_router  # noqa: E402
 from src.api import mail as mail_router  # noqa: E402
+from src.api import auth as auth_router  # noqa: E402
 
 app.include_router(health.router)
 app.include_router(config_router.router)
 app.include_router(mail_router.router)
+app.include_router(auth_router.router)
 
 _templates = Jinja2Templates(directory="src/templates")
 

@@ -30,6 +30,7 @@ class ConnectorStatus(str, Enum):
     OK = "ok"
     UNCONFIGURED = "unconfigured"
     ERROR = "error"
+    TOKEN_ERROR = "token_error"
 
 
 # ---------------------------------------------------------------------------
