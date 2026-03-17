@@ -91,6 +91,7 @@ class TestGmailInitiate:
             mock_settings.gmail_client_id = ""
             mock_settings.gmail_client_secret = ""
             mock_settings.secret_key = "test-key"
+            mock_settings.gmail_redirect_uri = ""
 
             test_app = _build_test_app(test_engine)
             with TestClient(test_app, raise_server_exceptions=False) as client:
@@ -108,6 +109,7 @@ class TestGmailInitiate:
             mock_settings.gmail_client_id = "test-client-id"
             mock_settings.gmail_client_secret = "test-client-secret"
             mock_settings.secret_key = "test-secret-key-32-chars-long!!!!"
+            mock_settings.gmail_redirect_uri = ""
 
             mock_flow = MagicMock()
             mock_flow.authorization_url.return_value = (
@@ -132,6 +134,7 @@ class TestGmailInitiate:
             mock_settings.gmail_client_id = "test-client-id"
             mock_settings.gmail_client_secret = "test-client-secret"
             mock_settings.secret_key = "test-secret-key-32-chars-long!!!!"
+            mock_settings.gmail_redirect_uri = ""
 
             mock_flow = MagicMock()
             mock_flow.authorization_url.return_value = (
@@ -145,6 +148,131 @@ class TestGmailInitiate:
                 resp = client.get("/auth/gmail/initiate", follow_redirects=False)
 
         assert "oauth_state" in resp.cookies
+
+    # --- T001: prompt tests ---------------------------------------------------
+
+    def test_prompt_exact_value(self, test_engine):
+        """authorization_url is called with prompt='select_account consent' exactly (SC-001)."""
+        with (
+            patch("src.api.auth.settings") as mock_settings,
+            patch("src.api.auth._build_flow") as mock_build_flow,
+        ):
+            mock_settings.gmail_client_id = "test-client-id"
+            mock_settings.gmail_client_secret = "test-client-secret"
+            mock_settings.secret_key = "test-secret-key-32-chars-long!!!!"
+            mock_settings.gmail_redirect_uri = ""
+
+            mock_flow = MagicMock()
+            mock_flow.authorization_url.return_value = (
+                "https://accounts.google.com/o/oauth2/auth?client_id=test",
+                "state-value",
+            )
+            mock_build_flow.return_value = mock_flow
+
+            test_app = _build_test_app(test_engine)
+            with TestClient(test_app, raise_server_exceptions=False) as client:
+                client.get("/auth/gmail/initiate", follow_redirects=False)
+
+        _, kwargs = mock_flow.authorization_url.call_args
+        assert kwargs["prompt"] == "select_account consent"
+
+    # --- T003: login_hint tests -----------------------------------------------
+
+    def test_login_hint_present_when_credential_exists(self, test_engine):
+        """authorization_url receives login_hint=account_email when a credential is stored."""
+        mock_cred = MagicMock()
+        mock_cred.account_email = "alice@example.com"
+
+        with (
+            patch("src.api.auth.settings") as mock_settings,
+            patch("src.api.auth._build_flow") as mock_build_flow,
+            patch("src.api.auth.GmailCredentialService") as mock_cred_svc_cls,
+        ):
+            mock_settings.gmail_client_id = "test-client-id"
+            mock_settings.gmail_client_secret = "test-client-secret"
+            mock_settings.secret_key = "test-secret-key-32-chars-long!!!!"
+            mock_settings.gmail_redirect_uri = ""
+
+            mock_flow = MagicMock()
+            mock_flow.authorization_url.return_value = (
+                "https://accounts.google.com/o/oauth2/auth?client_id=test",
+                "state-value",
+            )
+            mock_build_flow.return_value = mock_flow
+
+            mock_cred_svc = AsyncMock()
+            mock_cred_svc.get.return_value = mock_cred
+            mock_cred_svc_cls.return_value = mock_cred_svc
+
+            test_app = _build_test_app(test_engine)
+            with TestClient(test_app, raise_server_exceptions=False) as client:
+                client.get("/auth/gmail/initiate", follow_redirects=False)
+
+        _, kwargs = mock_flow.authorization_url.call_args
+        assert kwargs.get("login_hint") == "alice@example.com"
+
+    def test_login_hint_absent_when_no_credential(self, test_engine):
+        """authorization_url is NOT called with login_hint when no credential is stored."""
+        with (
+            patch("src.api.auth.settings") as mock_settings,
+            patch("src.api.auth._build_flow") as mock_build_flow,
+            patch("src.api.auth.GmailCredentialService") as mock_cred_svc_cls,
+        ):
+            mock_settings.gmail_client_id = "test-client-id"
+            mock_settings.gmail_client_secret = "test-client-secret"
+            mock_settings.secret_key = "test-secret-key-32-chars-long!!!!"
+            mock_settings.gmail_redirect_uri = ""
+
+            mock_flow = MagicMock()
+            mock_flow.authorization_url.return_value = (
+                "https://accounts.google.com/o/oauth2/auth?client_id=test",
+                "state-value",
+            )
+            mock_build_flow.return_value = mock_flow
+
+            mock_cred_svc = AsyncMock()
+            mock_cred_svc.get.return_value = None
+            mock_cred_svc_cls.return_value = mock_cred_svc
+
+            test_app = _build_test_app(test_engine)
+            with TestClient(test_app, raise_server_exceptions=False) as client:
+                client.get("/auth/gmail/initiate", follow_redirects=False)
+
+        _, kwargs = mock_flow.authorization_url.call_args
+        assert "login_hint" not in kwargs
+
+    def test_login_hint_absent_for_sentinel_email(self, test_engine):
+        """login_hint is NOT passed when account_email is the env-migration sentinel (FR-004)."""
+        mock_cred = MagicMock()
+        mock_cred.account_email = "migrated-from-env"
+
+        with (
+            patch("src.api.auth.settings") as mock_settings,
+            patch("src.api.auth._build_flow") as mock_build_flow,
+            patch("src.api.auth.GmailCredentialService") as mock_cred_svc_cls,
+        ):
+            mock_settings.gmail_client_id = "test-client-id"
+            mock_settings.gmail_client_secret = "test-client-secret"
+            mock_settings.secret_key = "test-secret-key-32-chars-long!!!!"
+            mock_settings.gmail_redirect_uri = ""
+
+            mock_flow = MagicMock()
+            mock_flow.authorization_url.return_value = (
+                "https://accounts.google.com/o/oauth2/auth?client_id=test",
+                "state-value",
+            )
+            mock_build_flow.return_value = mock_flow
+
+            mock_cred_svc = AsyncMock()
+            mock_cred_svc.get.return_value = mock_cred
+            mock_cred_svc_cls.return_value = mock_cred_svc
+
+            test_app = _build_test_app(test_engine)
+            with TestClient(test_app, raise_server_exceptions=False) as client:
+                client.get("/auth/gmail/initiate", follow_redirects=False)
+
+        _, kwargs = mock_flow.authorization_url.call_args
+        assert "login_hint" not in kwargs
 
 
 # ---------------------------------------------------------------------------

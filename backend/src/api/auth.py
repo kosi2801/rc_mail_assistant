@@ -25,7 +25,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import settings
 from src.database import get_session
 from src.logging_config import get_logger
-from src.services.gmail_credential_service import GmailCredentialService, mask_email
+from src.services.gmail_credential_service import (
+    GmailCredentialService,
+    _SENTINEL_EMAIL,
+    mask_email,
+)
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -39,7 +43,14 @@ def _get_serializer() -> URLSafeTimedSerializer:
 
 
 def _get_callback_url(request: Request) -> str:
-    """Build the absolute callback URL from the current request."""
+    """Build the absolute callback URL from the current request.
+
+    Uses GMAIL_REDIRECT_URI from settings when set — required when running behind
+    a reverse proxy or in Docker where request.base_url reflects the internal URL
+    rather than the external URL registered in Google Cloud Console.
+    """
+    if settings.gmail_redirect_uri:
+        return settings.gmail_redirect_uri
     base = str(request.base_url).rstrip("/")
     return f"{base}/auth/gmail/callback"
 
@@ -69,7 +80,10 @@ def _build_flow(redirect_uri: str) -> Flow:
 
 
 @router.get("/gmail/initiate")
-async def gmail_initiate(request: Request):
+async def gmail_initiate(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
     """Start the OAuth 2.0 Authorization Code flow (contracts/auth.md §1).
 
     On success: 302 to Google consent screen + sets HttpOnly CSRF state cookie.
@@ -84,16 +98,33 @@ async def gmail_initiate(request: Request):
     state = secrets.token_urlsafe(32)
     signed_state = _get_serializer().dumps(state)
 
+    # Look up stored credential to pre-select the correct account (advisory only)
+    cred_svc = GmailCredentialService(session)
+    cred = await cred_svc.get()
+
     # Build consent URL
     redirect_uri = _get_callback_url(request)
     flow = _build_flow(redirect_uri)
-    auth_url, _ = flow.authorization_url(
-        access_type="offline",
-        prompt="consent",
-        state=state,
-    )
+    auth_url_kwargs: dict = {
+        "access_type": "offline",
+        "prompt": "select_account consent",
+        "state": state,
+    }
+    if cred is not None and cred.account_email and cred.account_email != _SENTINEL_EMAIL:
+        auth_url_kwargs["login_hint"] = cred.account_email
+    auth_url, _ = flow.authorization_url(**auth_url_kwargs)
 
-    logger.info("gmail_initiate", redirect_uri=redirect_uri)
+    # Capture PKCE code_verifier if google-auth-oauthlib generated one (autogenerate_code_verifier=True default).
+    # It must be stored and sent with the token exchange in gmail_callback.
+    code_verifier = getattr(flow, "code_verifier", None)
+    if not isinstance(code_verifier, str):
+        code_verifier = None
+
+    logger.info(
+        "gmail_initiate",
+        redirect_uri=redirect_uri,
+        login_hint_present="login_hint" in auth_url_kwargs,
+    )
 
     # Build response: 302 to Google + set CSRF cookie
     response = RedirectResponse(url=auth_url, status_code=302)
@@ -107,6 +138,16 @@ async def gmail_initiate(request: Request):
         path="/",
         secure=is_https,
     )
+    if code_verifier:
+        response.set_cookie(
+            key="oauth_cv",
+            value=_get_serializer().dumps(code_verifier),
+            httponly=True,
+            samesite="lax",
+            max_age=_STATE_MAX_AGE,
+            path="/",
+            secure=is_https,
+        )
     return response
 
 
@@ -134,10 +175,11 @@ async def gmail_callback(
     """
     signed_cookie = request.cookies.get("oauth_state")
 
-    # --- Always-clear helper ---
+    # --- Always-clear helper (clears both state and PKCE verifier cookies) ---
     def _redirect_with_cleared_cookie(url: str) -> RedirectResponse:
         resp = RedirectResponse(url=url, status_code=302)
         resp.delete_cookie("oauth_state", path="/")
+        resp.delete_cookie("oauth_cv", path="/")
         return resp
 
     if not signed_cookie:
@@ -187,9 +229,21 @@ async def gmail_callback(
     redirect_uri = _get_callback_url(request)
     flow = _build_flow(redirect_uri)
 
+    # Recover PKCE code_verifier stored at initiate time (requests-oauthlib 2.0+ default).
+    code_verifier: str | None = None
+    signed_cv = request.cookies.get("oauth_cv")
+    if signed_cv:
+        try:
+            code_verifier = _get_serializer().loads(signed_cv, max_age=_STATE_MAX_AGE)
+        except (SignatureExpired, BadSignature):
+            logger.warning("gmail_callback_cv_cookie_invalid")
+
     try:
+        fetch_kwargs: dict = {"code": code}
+        if code_verifier:
+            fetch_kwargs["code_verifier"] = code_verifier
         await asyncio.get_running_loop().run_in_executor(
-            None, lambda: flow.fetch_token(code=code)
+            None, lambda: flow.fetch_token(**fetch_kwargs)
         )
     except Exception as exc:
         logger.warning("gmail_callback_token_exchange_failed", error=str(exc))

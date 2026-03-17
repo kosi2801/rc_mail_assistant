@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     # and imports it into the database). Once migrated, this env var can be removed from .env.
     # DO NOT USE after migration; remove in a follow-up feature once migration period ends.
     gmail_refresh_token: str = ""
+    # Override the dynamically-detected OAuth callback URL.
+    # Required when the app runs behind a reverse proxy or in Docker and the URL seen
+    # by the container differs from the URL the user's browser uses.
+    # Must match EXACTLY one of the "Authorized redirect URIs" in your Google Cloud Console.
+    # Example: http://localhost:8000/auth/gmail/callback
+    gmail_redirect_uri: str = ""
 
     # Startup retry tuning
     db_connect_attempts: int = 5
